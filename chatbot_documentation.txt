@@ -1,0 +1,66 @@
+================================================================================
+ONECHARGE AI CHATBOT - WORKFLOW & FEATURES DOCUMENTATION
+================================================================================
+
+1. PROJECT OVERVIEW
+-------------------
+OneCharge AI is an agentic customer support backend built with FastAPI and 
+LangChain. It is designed to act as an intelligent layer for an EV service app, 
+providing automated support for battery swaps, roadside assistance, and 
+maintenance tracking.
+
+2. CORE FEATURES
+----------------
+- AGENTIC AI REASONING: Uses LangGraph's "ReAct" pattern to intelligently 
+  decide when to look up data using tools.
+- CORS ENABLED: Configured with CORSMiddleware to allow secure communication 
+  with Flutter, React, or Web apps.
+- PERSONALIZED GREETINGS: Dynamically injects the user's name into the 
+  initial instructions for a custom user experience.
+- BUILT-IN FAQ KNOWLEDGE: Contains embedded workflows for "How to Book a 
+  Service," "Payment Methods," "Vehicle Management," and more.
+- DYNAMIC BUSINESS LOGIC: Automated rules for handling failed payments, 
+  high-demand wait times, and stale GPS signals.
+- SECURITY BOUNCER: Uses Pydantic to validate input data and prevent prompt 
+  injection attacks via name field length limits.
+- SAFETY NET: Robust error handling that returns a polite "technical 
+  difficulties" message instead of crashing if the AI provider fails.
+
+3. DATA RETRIEVAL TOOLS (MOCKED)
+--------------------------------
+The AI has access to three specialized "eyes" into the backend:
+- get_booking_details: Retrieves scheduled time, payment method, and status.
+- get_ticket_status: Monitors finding stage, wait times, and invoice status.
+- get_driver_gps: Checks how recently the driver's location was updated.
+
+4. USER CHAT WORKFLOW
+---------------------
+Step 1: INITIALIZATION
+- The user sends their first message via POST /api/chat/send/{user_id}.
+- The backend detects empty history and "whispers" the System Prompt (the rules) 
+  to the AI secretly.
+- If a user_name is provided, the AI is instructed to greet them personally.
+
+Step 2: REASONING & ACTIONS
+- The AI reads the user's query.
+- If the user asks about their booking, the AI calls the relevant tool.
+- The AI compares the tool's data against "Business Rules" (e.g., if wait time 
+  is longer than 5 minutes, tell the user contact support).
+
+Step 3: RESPONSE
+- The AI generates a helpful, accurate response using the FAQ Knowledge Base.
+- If the AI cannot solve the issue, it triggers a "Human Support" escalation 
+  message.
+
+Step 4: PERSISTENCE
+- The conversation is saved in the session using LangGraph's MemorySaver.
+- Users can retrieve their full chat history anytime via GET /api/chat/history/{user_id}.
+
+5. TECHNICAL STACK
+------------------
+- Framework: FastAPI (Python)
+- AI Engine: LangChain / LangGraph
+- Model: GPT-4o-mini (OpenAI)
+- Validation: Pydantic v2
+- Environment: Python Dotenv
+================================================================================
