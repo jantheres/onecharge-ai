@@ -71,6 +71,27 @@
                 "description": "Check if the server is running."
             },
             "response": []
+        },
+        {
+            "name": "Delete Chat History",
+            "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/api/chat/history/user_123",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "chat",
+                        "history",
+                        "user_123"
+                    ]
+                },
+                "description": "Clears the chat history for a specific user session (thread)."
+            },
+            "response": []
         }
     ],
     "event": [
