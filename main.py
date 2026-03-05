@@ -7,7 +7,7 @@ from typing import Optional
 
 # LangChain Imports
 from langchain_core.tools import tool
-from langchain_core.messages import SystemMessage, HumanMessage, RemoveMessage # <-- ADDED RemoveMessage HERE
+from langchain_core.messages import SystemMessage, HumanMessage, RemoveMessage
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
@@ -29,16 +29,17 @@ app.add_middleware(
 # -----------------------------
 
 # ==========================================
-# 3. CREATE THE TOOLS (Database Mockup)
+# 3. CREATE THE TOOLS (Diagnostic Upgraded)
 # ==========================================
 
 @tool
 def get_booking_details(user_id: str) -> str:
-    """Get the user's scheduled booking time and payment status."""
+    """Get the user's scheduled booking time, payment status, and failure reasons."""
     return json.dumps({
         "scheduled_time_hours_from_now": 1.0, 
         "payment_method": "online",
-        "payment_status": "failed"
+        "payment_status": "failed",
+        "error_reason": "CARD_EXPIRED" # <-- The AI will read this and analyze the problem!
     })
 
 @tool
@@ -84,9 +85,9 @@ APP USAGE & FAQ KNOWLEDGE BASE:
 - How to Log Out: To log out: Open Settings. Tap Log Out. Confirm logout in the dialog. Your session will be securely cleared.
 - How to Delete Account: To permanently delete your account: Go to Settings. Tap Delete Account. Confirm the deletion warning. This action is permanent and cannot be undone.
 
-BUSINESS LOGIC (Dynamic Tool Use):
+DIAGNOSTIC & BUSINESS LOGIC:
 - If `scheduled_time_hours_from_now` is < 1.5 hours, say: "Scheduled bookings must be at least 1.5 hours from now. Please choose a later time slot."
-- If payment failed, say: "It looks like the payment was not completed. Please try again or apply a valid Company/Redeem Code."
+- If payment failed, you MUST analyze the `error_reason` from the tool and explain it logically. Example: "Your payment failed because your card is expired. Please update it."
 - If status is 'pending' or 'offered', say: "Your service request is currently in the Finding stage. We are assigning the nearest available EV driver." 
   * NOTE: If wait_time_minutes > sla_minutes, say: "We are experiencing high demand right now. Please contact support."
 - If status is 'assigned' or 'reaching', and driver GPS age > 30 minutes, say: "For accuracy, driver locations older than 30 minutes are automatically ignored by our map. Please wait for an updated GPS signal from the driver."
@@ -113,6 +114,9 @@ agent_executor = create_react_agent(llm, tools, checkpointer=memory)
 class ChatRequest(BaseModel):
     message: str
     user_name: Optional[str] = Field(default=None, max_length=50)
+    
+    # <-- ADDED THIS: The secret mailbox for the Flutter app to send crash logs!
+    hidden_app_error: Optional[str] = Field(default=None, max_length=500) 
 
 # ==========================================
 # 7. THE API ENDPOINTS
@@ -152,7 +156,14 @@ async def send_chat_message(user_id: str, request: ChatRequest):
             
         input_messages.append(SystemMessage(content=personalized_prompt))
         
-    input_messages.append(HumanMessage(content=request.message))
+    # --- ADDED LOGIC FOR DIAGNOSTICS ---
+    actual_message = request.message
+    # If the Flutter app sent a secret error code, we attach it to the message so the AI can read it!
+    if request.hidden_app_error:
+        actual_message += f"\n\n[SECRET SYSTEM LOG: The app reported this error: {request.hidden_app_error}. Diagnose this for the user.]"
+    # -----------------------------------
+
+    input_messages.append(HumanMessage(content=actual_message))
     
     try:
         response = await agent_executor.ainvoke(
@@ -167,7 +178,6 @@ async def send_chat_message(user_id: str, request: ChatRequest):
     return {"role": "bot", "content": bot_reply}
 
 
-# --- ADDED THE DELETE ENDPOINT ---
 @app.delete("/api/chat/history/{user_id}")
 async def delete_chat_history(user_id: str):
     """Flutter calls this when the user clicks 'Clear Chat'."""
@@ -179,10 +189,8 @@ async def delete_chat_history(user_id: str):
     if not messages_in_history:
         return {"status": "success", "message": "Chat is already empty."}
         
-    # Create a RemoveMessage command for every message currently in memory
     delete_commands = [RemoveMessage(id=m.id) for m in messages_in_history]
     
-    # Execute the deletion
     await agent_executor.aupdate_state(config, {"messages": delete_commands})
     
     return {"status": "success", "message": f"Chat history deleted for {user_id}."}
