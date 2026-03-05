@@ -1,0 +1,103 @@
+{
+    "info": {
+        "_postman_id": "7f8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d",
+        "name": "OneCharge AI API",
+        "description": "API collection for testing the OneCharge AI Backend endpoints.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Send Chat Message",
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"message\": \"Hello! My name is John. Can you tell me how to book a service?\",\n    \"user_name\": \"John\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/chat/send/user_123",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "chat",
+                        "send",
+                        "user_123"
+                    ]
+                },
+                "description": "Sends a message to the AI agent. The first message triggers the personalized system prompt."
+            },
+            "response": []
+        },
+        {
+            "name": "Get Chat History",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/api/chat/history/user_123",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "chat",
+                        "history",
+                        "user_123"
+                    ]
+                },
+                "description": "Retrieves the formatted chat history for a specific user session (thread)."
+            },
+            "response": []
+        },
+        {
+            "name": "Root / Health Check",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/",
+                    "host": [
+                        "{{base_url}}"
+                    ]
+                },
+                "description": "Check if the server is running."
+            },
+            "response": []
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "https://onecharge-ai-production.up.railway.app",
+            "type": "string"
+        }
+    ]
+}

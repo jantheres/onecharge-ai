@@ -82,4 +82,4 @@ f:\onecharge_ai\
 For a deep dive into the business rules and FAQ knowledge base, see [`chatbot_documentation.txt`](./chatbot_documentation.txt).
 
 ---
-*Created with ❤️ by jantheres*
+*Created with by jantheres*

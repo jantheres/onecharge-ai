@@ -1,13 +1,13 @@
 import json
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware # <-- ADDED THIS for CORS
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from typing import Optional
 
 # LangChain Imports
 from langchain_core.tools import tool
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, RemoveMessage # <-- ADDED RemoveMessage HERE
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
@@ -19,7 +19,6 @@ load_dotenv()
 app = FastAPI(title="OneCharge AI Backend")
 
 # --- ADDED CORS MIDDLEWARE ---
-# This ensures web browsers (like an Admin Dashboard or Flutter Web) don't block your API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -113,7 +112,6 @@ agent_executor = create_react_agent(llm, tools, checkpointer=memory)
 # ==========================================
 class ChatRequest(BaseModel):
     message: str
-    # Security update: max_length=50 prevents hackers from injecting massive prompts here!
     user_name: Optional[str] = Field(default=None, max_length=50)
 
 # ==========================================
@@ -136,6 +134,7 @@ async def get_chat_history(user_id: str):
 
     return {"messages": formatted_messages}
 
+
 @app.post("/api/chat/send/{user_id}")
 async def send_chat_message(user_id: str, request: ChatRequest):
     config = {"configurable": {"thread_id": user_id}}
@@ -145,7 +144,6 @@ async def send_chat_message(user_id: str, request: ChatRequest):
     
     input_messages = []
     
-    # NEW LOGIC: Inject rules and name on the very first message
     if len(messages_in_history) == 0:
         personalized_prompt = SYSTEM_PROMPT
         
@@ -156,7 +154,6 @@ async def send_chat_message(user_id: str, request: ChatRequest):
         
     input_messages.append(HumanMessage(content=request.message))
     
-    # --- THE SAFETY NET ---
     try:
         response = await agent_executor.ainvoke(
             {"messages": input_messages}, 
@@ -164,9 +161,28 @@ async def send_chat_message(user_id: str, request: ChatRequest):
         )
         bot_reply = response["messages"][-1].content
     except Exception as e:
-        # If OpenAI fails or internet breaks, this catches the error
         print(f"CRITICAL AI ERROR: {e}")
         bot_reply = "I'm currently experiencing technical difficulties. Please try again in a moment or contact human support."
-    # ----------------------
         
     return {"role": "bot", "content": bot_reply}
+
+
+# --- ADDED THE DELETE ENDPOINT ---
+@app.delete("/api/chat/history/{user_id}")
+async def delete_chat_history(user_id: str):
+    """Flutter calls this when the user clicks 'Clear Chat'."""
+    config = {"configurable": {"thread_id": user_id}}
+    state = agent_executor.get_state(config)
+    
+    messages_in_history = state.values.get("messages", []) if state and hasattr(state, 'values') else []
+    
+    if not messages_in_history:
+        return {"status": "success", "message": "Chat is already empty."}
+        
+    # Create a RemoveMessage command for every message currently in memory
+    delete_commands = [RemoveMessage(id=m.id) for m in messages_in_history]
+    
+    # Execute the deletion
+    await agent_executor.aupdate_state(config, {"messages": delete_commands})
+    
+    return {"status": "success", "message": f"Chat history deleted for {user_id}."}
